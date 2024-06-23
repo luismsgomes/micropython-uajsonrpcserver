@@ -114,7 +114,7 @@ class UAJSONRPCServer:
         else:
             print("Called start() on server already started")
 
-    async def close(self):
+    async def stop(self):
         "stops the server"
         print("Stopping the server...")
         self.server.close()
