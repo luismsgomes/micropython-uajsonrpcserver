@@ -167,7 +167,7 @@ class UAJSONRPCServer:
         request_id = request_dict.get("id", None)
         method_name = request_dict.get("method", None)
         if method_name not in self.methods:
-            raise MethodNotFound(request_id=request_id)
+            raise MethodNotFound(request_id)
         params = request_dict.get("params", None)
         method, param_names = self.methods[method_name]
         num_params = len(param_names)
