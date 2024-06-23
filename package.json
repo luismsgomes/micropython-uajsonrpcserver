@@ -1,0 +1,10 @@
+{
+    "urls": [
+        [
+            "uajsonrpcserver.py",
+            "github:org/micropython-uajsonrpcserver/uajsonrpcserver.py"
+        ]
+    ],
+    "deps": [],
+    "version": "0.0.0"
+}
