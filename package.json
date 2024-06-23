@@ -2,7 +2,7 @@
     "urls": [
         [
             "uajsonrpcserver.py",
-            "github:org/micropython-uajsonrpcserver/uajsonrpcserver.py"
+            "github:luismsgomes/micropython-uajsonrpcserver/uajsonrpcserver.py"
         ]
     ],
     "deps": [],
