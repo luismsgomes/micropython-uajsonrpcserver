@@ -18,7 +18,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
 
 __author__ = "Luís Gomes"
-__version__ = "0.0.0"
+__version__ = "0.1.0"
 
 
 import json
@@ -92,7 +92,7 @@ class UAJSONRPCServer:
     <-- {"jsonrpc": "2.0", "result": 19, "id": 3}
     """
 
-    def __init__(self, host="0.0.0.0", port=10000):
+    def __init__(self, host="0.1.0.0", port=10000):
         self.host = host
         self.port = port
         self.methods = dict()
