@@ -19,16 +19,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import json
 
-try:
-    from typing import Callable, Coroutine, Dict, List, Optional, Tuple
-except ImportError:  # no typing module on MicroPython yet
-    async def _f(): pass
-    Coroutine = type(_f())  # type: ignore
-
-try:
-    import uasyncio as asyncio  # type: ignore[import-not-found]
-except ImportError:
-    import asyncio
+import uasyncio
 
 
 JSONRPC_VERSION = "2.0"
@@ -41,11 +32,11 @@ class RequestError(Exception):
         self.request_id = request_id
         self.data = data
 
-    def get_response(self) -> str:
+    def get_response(self):
         "returns a JSON-RPC formatted response containing error data"
         error = {
-            "code": self.code,  # type: ignore[attr-defined]
-            "message": self.message,  # type: ignore[attr-defined]
+            "code": self.code,
+            "message": self.message,
         }
         if self.data is not None:
             error["data"] = self.data
@@ -77,7 +68,7 @@ class MethodNotFound(RequestError):
 
 
 class InvalidParams(RequestError):
-    "Error raised when the parameters in the request do not conform to the method signature"
+    "Error raised when request parameters do not conform to the method signature"
     code = -32602
     message = "Invalid params"
 
@@ -88,55 +79,50 @@ class ServerError(RequestError):
     message = "Server error"
 
 
-def get_peername(reader: asyncio.StreamReader) -> str | None:
-    peername = None
-    if hasattr(reader, "get_extra_info"):
-        peername = reader.get_extra_info("peername")  # type: ignore[attr-defined]
-    elif (
-        hasattr(reader, "_transport")
-        and hasattr(reader._transport, "_extra")  # type: ignore[attr-defined]
-        and isinstance(reader._transport._extra, dict)  # type: ignore[attr-defined]
-        and "peername" in reader._transport._extra  # type: ignore[attr-defined]
-    ):
-        peername = reader._transport._extra["peername"]  # type: ignore[attr-defined]
-    return peername
-
-
 class UAJSONRPCServer:
     """
     Asynchronous JSON-RPC server implementation (based on uasyncio)
 
     Example messages:
-    --> {"jsonrpc": "2.0", "method": "subtract", "params": {"minuend": 42, "subtrahend": 23}, "id": 3}
+    --> {"jsonrpc": "2.0", "method": "subtract", "params": \
+            {"minuend": 42, "subtrahend": 23}, "id": 3}
     <-- {"jsonrpc": "2.0", "result": 19, "id": 3}
     """
 
-    def __init__(self, host: str = "0.0.0.0", port: int = 10000):
+    def __init__(self, host="0.0.0.0", port=10000):
         self.host = host
         self.port = port
-        self.methods: Dict[str, Tuple[Callable, List[str]]] = dict()
-        self.task: Optional[asyncio.Task] = None
+        self.methods = dict()
+        self.server = None
 
-    def register(self, name: str, method: Callable, param_names: List[str]) -> None:
+    def register(self, name, method, param_names):
         "register a method to become available to JSON-RPC clients"
         self.methods[name] = (method, param_names)
 
-    def start(self) -> None:
+    async def start(self):
         "starts the server as an asynchronous task (coroutine)"
-        print(f"Listening on {self.host}:{self.port}")
-        self.task = asyncio.create_task(
-            asyncio.start_server(self.handle_connection, self.host, self.port)
-        )
+        if self.server is None:
+            self.server = await uasyncio.start_server(
+                self.handle_connection,
+                self.host,
+                self.port,
+            )
+            print(f"Started server; listening on {self.host}:{self.port}")
+        else:
+            print("Called start() on server already started")
 
-    async def stop(self) -> None:
-        task: asyncio.Task = self.task
-        delattr(self, "task")
-        task.cancel()
-        await task
+    async def close(self):
+        "stops the server"
+        print("Stopping the server...")
+        self.server.close()
+        await self.server.wait_closed()
+        self.server = None
+        print("Server stoped")
 
-    async def handle_connection(self, reader, writer) -> None:
+    async def handle_connection(self, reader, writer):
         "handles a client connect calling self.handle_request() for each request"
-        print(f"Accepted client connection from {get_peername(reader)}")
+        peername = writer.get_extra_info("peername")
+        print(f"Accepted client connection from {peername}")
         try:
             fatal_error = False
             while not fatal_error:
@@ -163,7 +149,7 @@ class UAJSONRPCServer:
             writer.close()
             print("Connection closed")
 
-    async def handle_request(self, request_str: str) -> str | None:
+    async def handle_request(self, request_str):
         "handle a single request"
         # see https://www.jsonrpc.org/specification#request_object
         try:
@@ -194,8 +180,9 @@ class UAJSONRPCServer:
             named_params = {}
         elif isinstance(params, dict):
             if set(param_names) != set(params.keys()):
+                param_names_str = ', '.join(param_names)
                 raise InvalidParams(
-                    data=f"Method {method_name} param names are: {', '.join(param_names)}"
+                    data=f"Method {method_name} param names are: {param_names_str}"
                 )
             positional_params = []
             named_params = params
@@ -203,8 +190,6 @@ class UAJSONRPCServer:
             raise InvalidRequest(data="Params must be an array or object")
         try:
             result = method(*positional_params, **named_params)
-            if isinstance(result, Coroutine):
-                result = await result
         except Exception as e:
             raise ServerError(request_id, repr(e)) from e
         if request_id is None:
