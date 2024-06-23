@@ -183,7 +183,7 @@ class UAJSONRPCServer:
             named_params = {}
         elif isinstance(params, dict):
             if set(param_names) != set(params.keys()):
-                param_names_str = ', '.join(param_names)
+                param_names_str = ", ".join(param_names)
                 raise InvalidParams(
                     data=f"Method {method_name} param names are: {param_names_str}"
                 )
