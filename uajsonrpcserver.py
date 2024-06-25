@@ -98,9 +98,9 @@ class UAJSONRPCServer:
         self.methods = dict()
         self.server = None
 
-    def register(self, name, method, param_names):
+    def register(self, name, method, param_names, is_coroutine=False):
         "register a method to become available to JSON-RPC clients"
-        self.methods[name] = (method, param_names)
+        self.methods[name] = (method, param_names, is_coroutine)
 
     async def start(self):
         "starts the server as an asynchronous task (coroutine)"
@@ -169,7 +169,7 @@ class UAJSONRPCServer:
         if method_name not in self.methods:
             raise MethodNotFound(request_id)
         params = request_dict.get("params", None)
-        method, param_names = self.methods[method_name]
+        method, param_names, is_coroutine = self.methods[method_name]
         num_params = len(param_names)
         if (
             params is None
@@ -192,7 +192,10 @@ class UAJSONRPCServer:
         else:
             raise InvalidRequest(data="Params must be an array or object")
         try:
-            result = method(*positional_params, **named_params)
+            if is_coroutine:
+                result = await method(*positional_params, **named_params)
+            else:
+                result = method(*positional_params, **named_params)
         except Exception as e:
             raise ServerError(request_id, repr(e)) from e
         if request_id is None:
